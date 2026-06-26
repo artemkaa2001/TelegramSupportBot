@@ -2,7 +2,7 @@ import asyncio
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
-from bot.core.utils import safe_send, is_admin
+from bot.core.utils import safe_send, is_admin, message_storage_meta, message_to_ticket_text
 from config import ADMIN_ID
 from bot.services.users import (
     get_user, set_last_message, set_current_ticket,
@@ -45,7 +45,7 @@ async def start_cmd(message: Message):
 @router.message()
 async def user_message(message: Message):
     user_id = message.from_user.id
-    text = message.text
+    text = message_to_ticket_text(message)
 
     try:
         user = await get_user(user_id)
@@ -57,7 +57,7 @@ async def user_message(message: Message):
             await asyncio.sleep(0.1)
 
 
-        await add_message(ticket_id, sender="user", text=text)
+        await add_message(ticket_id, sender="user", text=text, **message_storage_meta(message))
         await set_last_message(user_id)
         if not await is_ack_planned(user_id):
             await set_ack_planned(user_id, True)

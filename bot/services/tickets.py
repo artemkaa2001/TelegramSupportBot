@@ -46,7 +46,7 @@ async def create_ticket(user_id: str) -> str:
     return new_id
 
 
-async def add_message(ticket_id: str, sender: str, text: str):
+async def add_message(ticket_id: str, sender: str, text: str, **extra):
     path = _ticket_messages_path(ticket_id)
 
     if os.path.exists(path):
@@ -55,11 +55,14 @@ async def add_message(ticket_id: str, sender: str, text: str):
     else:
         history = []
 
-    history.append({
+    message_data = {
         "from": sender,
         "text": text,
         "time": int(time.time())
-    })
+    }
+    message_data.update({key: value for key, value in extra.items() if value is not None})
+
+    history.append(message_data)
 
     with open(path, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
