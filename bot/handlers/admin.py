@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from config import ADMIN_ID
-from bot.core.utils import safe_send
+from bot.core.utils import escape_text, safe_send, safe_send_long
 from bot.services.tickets import (
     get_open_tickets, get_ticket, get_ticket_messages,
     update_ticket_status, add_message
@@ -144,16 +144,18 @@ async def open_ticket_cb(call: CallbackQuery):
         except:
             pass
 
-    text = f"Тикет {ticket_id}\n\n"
+    text = f"Тикет {escape_text(ticket_id)}\n\n"
     for m in msgs[-10:]:
         sender = "Юзер" if m["from"] == "user" else "Админ"
-        text += f"{sender}: {m['text']}\n"
+        text += f"{sender}: {escape_text(m.get('text'))}\n"
 
-    open_msg = await call.message.answer(
+    open_msg = await safe_send_long(
+        chat_id,
         text,
         reply_markup=ticket_buttons(ticket_id, user_id)
     )
-    _admin_open_msgs[chat_id] = open_msg.message_id
+    if open_msg:
+        _admin_open_msgs[chat_id] = open_msg.message_id
 
     await call.answer()
 
