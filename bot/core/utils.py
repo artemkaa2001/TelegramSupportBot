@@ -85,12 +85,18 @@ def escape_text(value) -> str:
     return html.escape(str(value or ""), quote=False)
 
 
+def ticket_display_text(value) -> str:
+    """Normalize stored ticket text before showing it to admin."""
+    text = str(value or "")
+    return text.replace("\\n", "\n")
+
+
 def is_admin(user_id: int) -> bool:
     return user_id == ADMIN_ID
 
 
 def message_to_ticket_text(message: Message) -> str:
-    """Convert any supported Telegram message into readable ticket text."""
+    """Convert any supported Telegram message into an admin-friendly summary."""
     caption = getattr(message, "caption", None)
     content_type = getattr(message, "content_type", None) or "message"
 
@@ -100,25 +106,24 @@ def message_to_ticket_text(message: Message) -> str:
     parts = []
 
     if message.voice:
-        parts.append(_file_line("🎙 Голосовое сообщение", message.voice.file_id, message.voice.duration))
+        parts.append(_media_line("🎙 Голосовое сообщение", message.voice.duration))
     elif message.video_note:
-        parts.append(_file_line("⭕️ Видео-кружок", message.video_note.file_id, message.video_note.duration))
+        parts.append(_media_line("⭕️ Видео-кружок", message.video_note.duration))
     elif message.photo:
-        best_photo = message.photo[-1]
-        parts.append(f"🖼 Фото\nfile_id: {best_photo.file_id}")
+        parts.append("🖼 Фото — вложение прикреплено ниже")
     elif message.video:
-        parts.append(_file_line("🎬 Видео", message.video.file_id, message.video.duration))
+        parts.append(_media_line("🎬 Видео", message.video.duration))
     elif message.document:
-        filename = f"\nфайл: {message.document.file_name}" if message.document.file_name else ""
-        parts.append(f"📎 Документ{filename}\nfile_id: {message.document.file_id}")
+        filename = f" ({message.document.file_name})" if message.document.file_name else ""
+        parts.append(f"📎 Документ{filename} — вложение прикреплено ниже")
     elif message.audio:
-        title = f"\nназвание: {message.audio.title}" if message.audio.title else ""
-        parts.append(_file_line(f"🎵 Аудио{title}", message.audio.file_id, message.audio.duration))
+        title = f" ({message.audio.title})" if message.audio.title else ""
+        parts.append(_media_line(f"🎵 Аудио{title}", message.audio.duration))
     elif message.animation:
-        parts.append(f"🧩 GIF/анимация\nfile_id: {message.animation.file_id}")
+        parts.append("🧩 GIF/анимация — вложение прикреплено ниже")
     elif message.sticker:
         emoji = f" {message.sticker.emoji}" if message.sticker.emoji else ""
-        parts.append(f"🙂 Стикер{emoji}\nfile_id: {message.sticker.file_id}")
+        parts.append(f"🙂 Стикер{emoji} — вложение прикреплено ниже")
     elif message.location:
         lat = message.location.latitude
         lon = message.location.longitude
@@ -157,6 +162,24 @@ def message_to_ticket_text(message: Message) -> str:
     return "\n".join(parts)
 
 
-def _file_line(title: str, file_id: str, duration: int | None = None) -> str:
-    duration_line = f"\nдлительность: {duration} сек." if duration else ""
-    return f"{title}{duration_line}\nfile_id: {file_id}"
+def message_storage_meta(message: Message) -> dict:
+    """Save enough Telegram metadata to copy original user messages to admin."""
+    return {
+        "chat_id": message.chat.id,
+        "message_id": message.message_id,
+        "content_type": getattr(message, "content_type", None) or "message",
+    }
+
+
+def should_copy_to_admin(message_data: dict) -> bool:
+    return (
+        message_data.get("from") == "user"
+        and message_data.get("chat_id") is not None
+        and message_data.get("message_id") is not None
+        and message_data.get("content_type") != "text"
+    )
+
+
+def _media_line(title: str, duration: int | None = None) -> str:
+    duration_line = f" ({duration} сек.)" if duration else ""
+    return f"{title}{duration_line} — вложение прикреплено ниже"
