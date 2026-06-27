@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from config import ADMIN_ID
-from bot.core.utils import escape_text, safe_send, safe_send_long
+from bot.core.utils import escape_text, safe_send, safe_send_long, should_copy_to_admin, ticket_display_text
 from bot.services.tickets import (
     get_open_tickets, get_ticket, get_ticket_messages,
     update_ticket_status, add_message
@@ -147,7 +147,8 @@ async def open_ticket_cb(call: CallbackQuery):
     text = f"Тикет {escape_text(ticket_id)}\n\n"
     for m in msgs[-10:]:
         sender = "Юзер" if m["from"] == "user" else "Админ"
-        text += f"{sender}: {escape_text(m.get('text'))}\n"
+        message_text = escape_text(ticket_display_text(m.get('text')))
+        text += f"{sender}: {message_text}\n"
 
     open_msg = await safe_send_long(
         chat_id,
@@ -156,6 +157,17 @@ async def open_ticket_cb(call: CallbackQuery):
     )
     if open_msg:
         _admin_open_msgs[chat_id] = open_msg.message_id
+
+    for message_data in msgs[-10:]:
+        if should_copy_to_admin(message_data):
+            try:
+                await call.bot.copy_message(
+                    chat_id=chat_id,
+                    from_chat_id=message_data["chat_id"],
+                    message_id=message_data["message_id"],
+                )
+            except Exception:
+                pass
 
     await call.answer()
 
