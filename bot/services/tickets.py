@@ -4,15 +4,15 @@ import json
 import secrets
 from typing import Optional
 
-from config import TICKETS_PATH, MESSAGES_PATH
+from config import TICKETS_PATH, MESSAGES_PATH, TICKET_PREFIX
 from bot.core.json_storage import JsonStorage
 
 _tickets = JsonStorage(TICKETS_PATH)
 
 def _generate_ticket_id():
-    prefix = "NR-"
+    prefix = TICKET_PREFIX or "AA"
     unique = secrets.token_hex(3).upper()
-    return prefix + unique
+    return f"{prefix}-{unique}"
 
 
 def _ticket_messages_path(ticket_id: str) -> str:
