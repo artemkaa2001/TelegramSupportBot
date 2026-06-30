@@ -3,7 +3,7 @@ from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
 from bot.core.utils import safe_send, is_admin, message_storage_meta, message_to_ticket_text
-from config import ADMIN_ID
+from config import ADMIN_ID, SERVICE_NAME
 from bot.services.users import (
     get_user, set_last_message, set_current_ticket,
     is_ack_planned, set_ack_planned, update_user)
@@ -35,7 +35,7 @@ async def start_cmd(message: Message):
             return
 
     text = (
-        "Привет! Это поддержка {example}.\n"
+        f"Привет! Это поддержка {SERVICE_NAME}.\n"
         "Опишите проблему (можно несколькими сообщениями), после чего ожидайте."
     )
 
