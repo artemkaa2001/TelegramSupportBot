@@ -2,13 +2,21 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from config import ADMIN_ID
-from bot.core.utils import escape_text, safe_send, safe_send_long, should_copy_to_admin, ticket_display_text
+from bot.core.utils import (
+    escape_text,
+    message_storage_meta,
+    message_to_ticket_text,
+    safe_copy_message,
+    safe_send,
+    safe_send_long,
+    should_copy_to_admin,
+    ticket_display_text,
+)
 from bot.services.tickets import (
     get_open_tickets, get_ticket, get_ticket_messages,
     update_ticket_status, add_message
 )
 from bot.services.users import set_current_ticket, set_admin_notified
-from bot.services.users import has_admin_started, set_admin_started
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from bot.services.users import has_admin_started, set_admin_started
 
@@ -212,10 +220,25 @@ async def admin_reply(message: Message):
         return
 
     user_id = ticket["user_id"]
-    text = message.text
+    delivered_message = await safe_copy_message(
+        user_id,
+        from_chat_id=message.chat.id,
+        message_id=message.message_id,
+    )
+    if delivered_message is None:
+        await message.answer(
+            "Не удалось доставить сообщение. Возможно, пользователь заблокировал "
+            "бота или Telegram не поддерживает копирование этого типа сообщения. "
+            "Попробуй отправить другое сообщение."
+        )
+        return
 
-    await add_message(ticket_id, "admin", text)
-    await safe_send(user_id, text)
+    await add_message(
+        ticket_id,
+        "admin",
+        message_to_ticket_text(message),
+        **message_storage_meta(message),
+    )
 
     await message.answer("Отправлено ✔️")
     _admin_reply_state.pop(chat_id, None)
