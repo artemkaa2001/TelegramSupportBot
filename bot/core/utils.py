@@ -23,6 +23,25 @@ async def safe_send(chat_id: int, text: str, reply_markup=None):
         return None
 
 
+async def safe_copy_message(chat_id: int, from_chat_id: int, message_id: int):
+    """Copy a Telegram message, retrying rate limits and hiding expected delivery errors."""
+    try:
+        return await bot.copy_message(
+            chat_id=chat_id,
+            from_chat_id=from_chat_id,
+            message_id=message_id,
+        )
+    except TelegramForbiddenError:
+        return None
+    except TelegramBadRequest:
+        return None
+    except TelegramRetryAfter as error:
+        await asyncio.sleep(error.retry_after)
+        return await safe_copy_message(chat_id, from_chat_id, message_id)
+    except Exception:
+        return None
+
+
 async def safe_send_long(chat_id: int, text: str, reply_markup=None):
     """Send long text as several Telegram messages.
 
