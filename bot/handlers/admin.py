@@ -36,15 +36,12 @@ admin_main_keyboard = ReplyKeyboardMarkup(
 )
 
 
-def ticket_buttons(ticket_id: str, user_id: int):
+def ticket_buttons(ticket_id: str):
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="Ответить 📩", callback_data=f"reply:{ticket_id}"),
                 InlineKeyboardButton(text="Закрыть ❌", callback_data=f"close:{ticket_id}")
-            ],
-            [
-                InlineKeyboardButton(text="Пользователь 💬", url=f"tg://user?id={user_id}")
             ]
         ]
     )
@@ -145,14 +142,10 @@ async def open_ticket_cb(call: CallbackQuery):
     user_id = ticket["user_id"]
     msgs = get_ticket_messages(ticket_id)
 
-    pnl_id = _admin_panels.get(chat_id)
-    if pnl_id:
-        try:
-            await call.bot.delete_message(chat_id, pnl_id)
-        except:
-            pass
-
-    text = f"Тикет {escape_text(ticket_id)}\n\n"
+    text = (
+        f"Тикет {escape_text(ticket_id)}\n"
+        f"Пользователь: {escape_text(user_id)}\n\n"
+    )
     for m in msgs[-10:]:
         sender = "Юзер" if m["from"] == "user" else "Админ"
         message_text = escape_text(ticket_display_text(m.get('text')))
@@ -161,10 +154,25 @@ async def open_ticket_cb(call: CallbackQuery):
     open_msg = await safe_send_long(
         chat_id,
         text,
-        reply_markup=ticket_buttons(ticket_id, user_id)
+        reply_markup=ticket_buttons(ticket_id)
     )
-    if open_msg:
-        _admin_open_msgs[chat_id] = open_msg.message_id
+    if open_msg is None:
+        await call.answer(
+            "Не удалось открыть тикет. Попробуй ещё раз. "
+            "Причина записана в журнал бота.",
+            show_alert=True,
+        )
+        return
+
+    _admin_open_msgs[chat_id] = open_msg.message_id
+    await call.answer()
+
+    pnl_id = _admin_panels.pop(chat_id, None)
+    if pnl_id:
+        try:
+            await call.bot.delete_message(chat_id, pnl_id)
+        except Exception:
+            pass
 
     for message_data in msgs[-10:]:
         if should_copy_to_admin(message_data):
@@ -176,8 +184,6 @@ async def open_ticket_cb(call: CallbackQuery):
                 )
             except Exception:
                 pass
-
-    await call.answer()
 
 
 _admin_reply_state = {}

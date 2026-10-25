@@ -2,24 +2,29 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest, Teleg
 from aiogram.types import Message
 import asyncio
 import html
+import logging
 from config import ADMIN_ID
 from bot.core.loader import bot
 
 TELEGRAM_TEXT_LIMIT = 4096
 SAFE_TEXT_LIMIT = 3900
+logger = logging.getLogger(__name__)
 
 
 async def safe_send(chat_id: int, text: str, reply_markup=None):
     try:
         return await bot.send_message(chat_id, text, reply_markup=reply_markup)
-    except TelegramForbiddenError:
+    except TelegramForbiddenError as error:
+        logger.warning("Telegram refused send_message to chat %s: %s", chat_id, error.message)
         return None
-    except TelegramBadRequest:
+    except TelegramBadRequest as error:
+        logger.warning("Telegram rejected send_message to chat %s: %s", chat_id, error.message)
         return None
     except TelegramRetryAfter as e:
         await asyncio.sleep(e.retry_after)
         return await safe_send(chat_id, text, reply_markup)
-    except Exception:
+    except Exception as error:
+        logger.error("send_message to chat %s failed (%s)", chat_id, type(error).__name__)
         return None
 
 
